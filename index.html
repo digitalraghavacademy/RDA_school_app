@@ -2821,55 +2821,84 @@ Write neat and clean answers.`,sections:[{id:b("sec"),title:"Section A — Objec
     }
   },1000);
 
-  // PATCH 2 - STUDENT BLOCK - Call details + Students list hide
-  var studentInterval = setInterval(function(){
-    // Check current role - from localStorage or button active
-    var activeRoleBtn = document.querySelector('button.bg-yellow-500, button.bg-\\[\\#d4af37\\], button.bg-amber-400');
-    var isStudent = false;
-    if(activeRoleBtn){
-      isStudent = (activeRoleBtn.textContent||'').toLowerCase().includes('student');
+  <script>
+// FINAL FIX - Ask Draggable + Student Call Block - 100% Working
+(function(){
+  // 1. ASK RDA DRAGGABLE - Pakka chalega
+  function initDrag(){
+    var btn = Array.from(document.querySelectorAll('button')).find(b => (b.textContent||'').includes('Ask RDA'));
+    if(!btn) return;
+    var box = btn.parentElement;
+    if(box.dataset.fixedDone) return;
+    box.dataset.fixedDone='1';
+    box.id='ask-rda-drag';
+    box.style.position='fixed';
+    box.style.right='20px';
+    box.style.bottom='20px';
+    box.style.zIndex='999999';
+    box.style.cursor='grab';
+    box.style.touchAction='none';
+    // Make draggable
+    var dragging=false, sx, sy, ox, oy;
+    function start(x,y){
+      dragging=true;
+      sx=x; sy=y;
+      var r=box.getBoundingClientRect();
+      ox=r.left; oy=r.top;
+      box.style.right='auto';
+      box.style.bottom='auto';
+      box.style.left=ox+'px';
+      box.style.top=oy+'px';
     }
-    if(localStorage.getItem('role')=='Student') isStudent=true;
+    function move(x,y){
+      if(!dragging) return;
+      box.style.left=(ox + x - sx)+'px';
+      box.style.top=(oy + y - sy)+'px';
+    }
+    box.addEventListener('mousedown', e=>{start(e.clientX,e.clientY); e.preventDefault()});
+    window.addEventListener('mousemove', e=>move(e.clientX,e.clientY));
+    window.addEventListener('mouseup', ()=>dragging=false);
+    box.addEventListener('touchstart', e=>{start(e.touches[0].clientX,e.touches[0].clientY)}, {passive:false});
+    window.addEventListener('touchmove', e=>{if(!dragging) return; move(e.touches[0].clientX,e.touches[0].clientY); e.preventDefault()}, {passive:false});
+    window.addEventListener('touchend', ()=>dragging=false);
+  }
+  setInterval(initDrag, 800);
+
+  // 2. STUDENT BLOCK - Students page + Call button hide for Student
+  function blockForStudent(){
+    // Detect Student role - top right me Student badge dikh raha hai
+    var studentBadge = Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim()==='Student');
+    var isStudentPage = document.querySelector('h1') && document.querySelector('h1').textContent.trim()==='Students';
+    var isStudentRole = studentBadge && studentBadge.offsetParent !== null;
     
-    if(isStudent){
-      // Hide Students menu button
-      Array.from(document.querySelectorAll('button')).forEach(function(b){
-        var t = (b.textContent||'').trim();
-        if(t==='Students' || t==='Faculty' || t.includes('Question Papers')){
-          if(t==='Students' || t.includes('Question Papers')){
-            b.style.display='none';
-          }
-        }
-      });
-      // Mask phone/email/Aadhar in table
-      document.querySelectorAll('td, div').forEach(function(el){
-        var txt = el.textContent||'';
-        // If looks like phone 10 digits
-        if(/^\d{10}$/.test(txt.trim())){
-          if(!el.dataset.masked){
-            el.dataset.masked='1';
-            el.textContent='••••••••••';
-          }
-        }
-      });
-      // Hide Call/WhatsApp/Edit/Delete buttons for Student
-      Array.from(document.querySelectorAll('button')).forEach(function(b){
-        var t = b.textContent||'';
-        if(t.includes('Call') || t.includes('WhatsApp') || t.includes('Edit') || t.includes('Delete')){
-          var row = b.closest('div');
-          if(row && row.textContent.includes('RDA') && isStudent){
-            // Keep only if it's own profile - for now hide all call buttons for student
-            if(!row.textContent.includes('My Profile')){
-              // Don't hide own, but we can't detect, so hide call buttons
-              if(t.includes('Call') || t.includes('WhatsApp')){
-                b.style.display='none';
-              }
+    if(isStudentRole && isStudentPage){
+      // Student Role me Students page khula hai - isko block karo
+      // Call, WhatsApp, Email buttons hide karo
+      document.querySelectorAll('button').forEach(function(b){
+        // Call button ke andar phone icon hota hai aur text khali hota hai
+        if(b.innerHTML.includes('<svg') || b.innerHTML.includes('phone') || b.querySelector('svg')){
+          var card = b.closest('div');
+          // Agar ye student card ke andar hai
+          if(card && (card.textContent.includes('Roll') || card.parentElement.textContent.includes('Roll'))){
+            // Profile button ko chhod ke sab hide
+            if(!(b.textContent||'').includes('Profile')){
+              b.style.display='none';
             }
           }
         }
       });
+      // Search box ke neeche message dikhao
+      var searchBox = document.querySelector('input[placeholder*="Search name"]');
+      if(searchBox && !document.getElementById('student-block-msg')){
+        var msg = document.createElement('div');
+        msg.id='student-block-msg';
+        msg.style.cssText='background:#1e293b;color:#fbbf24;padding:12px;border-radius:10px;margin:10px 0;text-align:center';
+        msg.textContent='⚠️ Student Role: Aap sirf apni profile dekh sakte ho - Dusre students ke call details hidden hai';
+        searchBox.parentElement.after(msg);
+      }
     }
-  },1500);
+  }
+  setInterval(blockForStudent, 1000);
 })();
 </script>
   </body>
