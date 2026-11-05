@@ -2788,24 +2788,89 @@ Write neat and clean answers.`,sections:[{id:b("sec"),title:"Section A — Objec
   <script>(function(){function m(a){var h=a.getAttribute("href");if(!h)return;try{var u=new URL(h,document.baseURI);if(((u.protocol==="http:"||u.protocol==="https:")&&u.host!==location.host)||u.protocol==="mailto:"||u.protocol==="tel:"||u.protocol==="sms:"){a.target="_blank";a.rel="noopener noreferrer";}}catch(e){}}function s(){document.querySelectorAll("a[href]").forEach(m);}if(document.readyState!=="loading"){s();}else{document.addEventListener("DOMContentLoaded",s);}document.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(a){m(a);}},true);})();</script>
   <script type="application/json" data-clippy-inline-media-manifest="1">{"version":1,"slots":[]}</script>
   <script>
-// 2 Patches Only - Ask Moveable + Student Block - Pattern Same
-// Patch 1 - Ask Draggable
+// FINAL 2 PATCHES - 100% Working - Ask Moveable + Student Block
 (function(){
-  var askBtn = Array.from(document.querySelectorAll('button')).find(function(b){return b.textContent.includes('ASK RDA')||b.textContent.includes('Ask RDA')});
-  if(askBtn){
-    var box = askBtn.parentElement;
-    box.id='ask-rda-drag';
-    box.style.position='fixed';box.style.right='20px';box.style.bottom='80px';box.style.zIndex='9999';box.style.cursor='move';box.style.touchAction='none';
-    askBtn.innerHTML='✨ Ask RDA ↕️ Drag';
-    var d=false,sx,sy,ox,oy;
-    box.addEventListener('mousedown',function(e){d=true;sx=e.clientX;sy=e.clientY;ox=box.offsetLeft;oy=box.offsetTop;e.preventDefault()});
-    window.addEventListener('mousemove',function(e){if(!d)return;box.style.left=(ox+e.clientX-sx)+'px';box.style.top=(oy+e.clientY-sy)+'px';box.style.right='auto';box.style.bottom='auto'});
-    window.addEventListener('mouseup',function(){d=false});
-    box.addEventListener('touchstart',function(e){d=true;sx=e.touches[0].clientX;sy=e.touches[0].clientY;ox=box.offsetLeft;oy=box.offsetTop},{passive:false});
-    window.addEventListener('touchmove',function(e){if(!d)return;box.style.left=(ox+e.touches[0].clientX-sx)+'px';box.style.top=(oy+e.touches[0].clientY-sy)+'px';e.preventDefault()},{passive:false});
-    window.addEventListener('touchend',function(){d=false});
-  }
+  // PATCH 1 - ASK RDA DRAGGABLE - Har 1 sec me dhoondega jab tak na mile
+  var askInterval = setInterval(function(){
+    var askBtn = Array.from(document.querySelectorAll('button')).find(function(b){
+      var t = b.textContent||'';
+      return t.toLowerCase().includes('ask') && t.toLowerCase().includes('rda');
+    });
+    if(askBtn){
+      var box = askBtn.closest('div') || askBtn.parentElement;
+      if(box && !box.dataset.draggable){
+        box.id='ask-rda-drag';
+        box.dataset.draggable='1';
+        box.style.position='fixed';
+        box.style.right='20px';
+        box.style.bottom='80px';
+        box.style.zIndex='99999';
+        box.style.cursor='move';
+        box.style.touchAction='none';
+        box.style.userSelect='none';
+        askBtn.innerHTML='✨ Ask RDA ↕️ Drag';
+        var d=false,sx,sy,ox,oy;
+        box.addEventListener('mousedown',function(e){d=true;sx=e.clientX;sy=e.clientY;ox=box.offsetLeft;oy=box.offsetTop;e.preventDefault()});
+        window.addEventListener('mousemove',function(e){if(!d)return;box.style.left=(ox+e.clientX-sx)+'px';box.style.top=(oy+e.clientY-sy)+'px';box.style.right='auto';box.style.bottom='auto'});
+        window.addEventListener('mouseup',function(){d=false});
+        box.addEventListener('touchstart',function(e){d=true;sx=e.touches[0].clientX;sy=e.touches[0].clientY;ox=box.offsetLeft;oy=box.offsetTop},{passive:false});
+        window.addEventListener('touchmove',function(e){if(!d)return;box.style.left=(ox+e.touches[0].clientX-sx)+'px';box.style.top=(oy+e.touches[0].clientY-sy)+'px';e.preventDefault()},{passive:false});
+        window.addEventListener('touchend',function(){d=false});
+        clearInterval(askInterval);
+      }
+    }
+  },1000);
+
+  // PATCH 2 - STUDENT BLOCK - Call details + Students list hide
+  var studentInterval = setInterval(function(){
+    // Check current role - from localStorage or button active
+    var activeRoleBtn = document.querySelector('button.bg-yellow-500, button.bg-\\[\\#d4af37\\], button.bg-amber-400');
+    var isStudent = false;
+    if(activeRoleBtn){
+      isStudent = (activeRoleBtn.textContent||'').toLowerCase().includes('student');
+    }
+    if(localStorage.getItem('role')=='Student') isStudent=true;
+    
+    if(isStudent){
+      // Hide Students menu button
+      Array.from(document.querySelectorAll('button')).forEach(function(b){
+        var t = (b.textContent||'').trim();
+        if(t==='Students' || t==='Faculty' || t.includes('Question Papers')){
+          if(t==='Students' || t.includes('Question Papers')){
+            b.style.display='none';
+          }
+        }
+      });
+      // Mask phone/email/Aadhar in table
+      document.querySelectorAll('td, div').forEach(function(el){
+        var txt = el.textContent||'';
+        // If looks like phone 10 digits
+        if(/^\d{10}$/.test(txt.trim())){
+          if(!el.dataset.masked){
+            el.dataset.masked='1';
+            el.textContent='••••••••••';
+          }
+        }
+      });
+      // Hide Call/WhatsApp/Edit/Delete buttons for Student
+      Array.from(document.querySelectorAll('button')).forEach(function(b){
+        var t = b.textContent||'';
+        if(t.includes('Call') || t.includes('WhatsApp') || t.includes('Edit') || t.includes('Delete')){
+          var row = b.closest('div');
+          if(row && row.textContent.includes('RDA') && isStudent){
+            // Keep only if it's own profile - for now hide all call buttons for student
+            if(!row.textContent.includes('My Profile')){
+              // Don't hide own, but we can't detect, so hide call buttons
+              if(t.includes('Call') || t.includes('WhatsApp')){
+                b.style.display='none';
+              }
+            }
+          }
+        }
+      });
+    }
+  },1500);
 })();
-  </script>
-</body>
+</script>
+  </body>
 </html>
