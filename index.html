@@ -2820,86 +2820,66 @@ Write neat and clean answers.`,sections:[{id:b("sec"),title:"Section A — Objec
       }
     }
   },1000);
-
-  <script>
-// FINAL FIX - Ask Draggable + Student Call Block - 100% Working
+<style>
+/* STUDENT ROLE ME CALL BUTTONS HIDE - !important se React bhi nahi dikha payega */
+body.student-mode button:has(svg) { display: none !important; }
+body.student-mode [class*="Profile"] { display: inline-flex !important; }
+</style>
+<script>
+// FINAL - 100% Working - No React overwrite
 (function(){
-  // 1. ASK RDA DRAGGABLE - Pakka chalega
-  function initDrag(){
-    var btn = Array.from(document.querySelectorAll('button')).find(b => (b.textContent||'').includes('Ask RDA'));
-    if(!btn) return;
-    var box = btn.parentElement;
-    if(box.dataset.fixedDone) return;
-    box.dataset.fixedDone='1';
-    box.id='ask-rda-drag';
+  // Ask Draggable - Simple
+  var box = null;
+  function findAsk(){
+    var b = Array.from(document.querySelectorAll('button')).find(x => (x.textContent||'').includes('Ask RDA'));
+    return b ? b.parentElement : null;
+  }
+  function makeDrag(){
+    if(!box) box = findAsk();
+    if(!box) return;
     box.style.position='fixed';
     box.style.right='20px';
     box.style.bottom='20px';
-    box.style.zIndex='999999';
+    box.style.zIndex='9999999';
     box.style.cursor='grab';
-    box.style.touchAction='none';
-    // Make draggable
-    var dragging=false, sx, sy, ox, oy;
-    function start(x,y){
-      dragging=true;
-      sx=x; sy=y;
+    box.setAttribute('draggable','true');
+    box.ondragstart = function(e){
       var r=box.getBoundingClientRect();
-      ox=r.left; oy=r.top;
-      box.style.right='auto';
-      box.style.bottom='auto';
-      box.style.left=ox+'px';
-      box.style.top=oy+'px';
-    }
-    function move(x,y){
-      if(!dragging) return;
-      box.style.left=(ox + x - sx)+'px';
-      box.style.top=(oy + y - sy)+'px';
-    }
-    box.addEventListener('mousedown', e=>{start(e.clientX,e.clientY); e.preventDefault()});
-    window.addEventListener('mousemove', e=>move(e.clientX,e.clientY));
-    window.addEventListener('mouseup', ()=>dragging=false);
-    box.addEventListener('touchstart', e=>{start(e.touches[0].clientX,e.touches[0].clientY)}, {passive:false});
-    window.addEventListener('touchmove', e=>{if(!dragging) return; move(e.touches[0].clientX,e.touches[0].clientY); e.preventDefault()}, {passive:false});
-    window.addEventListener('touchend', ()=>dragging=false);
+      e.dataTransfer.setData('text/plain','');
+      e.dataTransfer.setDragImage(box, r.width/2, r.height/2);
+      box._sx=e.clientX; box._sy=e.clientY; box._ox=r.left; box._oy=r.top;
+      box.style.right='auto'; box.style.bottom='auto';
+    };
+    box.ondrag = function(e){
+      if(e.clientX==0 && e.clientY==0) return;
+      box.style.left=(box._ox + e.clientX - box._sx)+'px';
+      box.style.top=(box._oy + e.clientY - box._sy)+'px';
+    };
   }
-  setInterval(initDrag, 800);
+  setInterval(makeDrag, 1000);
 
-  // 2. STUDENT BLOCK - Students page + Call button hide for Student
-  function blockForStudent(){
-    // Detect Student role - top right me Student badge dikh raha hai
-    var studentBadge = Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim()==='Student');
-    var isStudentPage = document.querySelector('h1') && document.querySelector('h1').textContent.trim()==='Students';
-    var isStudentRole = studentBadge && studentBadge.offsetParent !== null;
-    
-    if(isStudentRole && isStudentPage){
-      // Student Role me Students page khula hai - isko block karo
-      // Call, WhatsApp, Email buttons hide karo
-      document.querySelectorAll('button').forEach(function(b){
-        // Call button ke andar phone icon hota hai aur text khali hota hai
-        if(b.innerHTML.includes('<svg') || b.innerHTML.includes('phone') || b.querySelector('svg')){
-          var card = b.closest('div');
-          // Agar ye student card ke andar hai
-          if(card && (card.textContent.includes('Roll') || card.parentElement.textContent.includes('Roll'))){
-            // Profile button ko chhod ke sab hide
-            if(!(b.textContent||'').includes('Profile')){
-              b.style.display='none';
-            }
-          }
+  // Student Mode - Add class to body
+  setInterval(function(){
+    var isStudent = false;
+    var badge = Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==='Student');
+    if(badge && badge.offsetParent){
+      var h1 = document.querySelector('h1');
+      if(h1 && h1.textContent==='Students') isStudent=true;
+    }
+    if(isStudent){
+      document.body.classList.add('student-mode');
+      // Direct hide call buttons
+      document.querySelectorAll('button').forEach(function(btn){
+        if(btn.textContent.includes('Profile')) return;
+        if(btn.innerHTML.includes('svg') && btn.closest('div') && btn.closest('div').textContent.includes('Roll')){
+          btn.style.setProperty('display','none','important');
         }
       });
-      // Search box ke neeche message dikhao
-      var searchBox = document.querySelector('input[placeholder*="Search name"]');
-      if(searchBox && !document.getElementById('student-block-msg')){
-        var msg = document.createElement('div');
-        msg.id='student-block-msg';
-        msg.style.cssText='background:#1e293b;color:#fbbf24;padding:12px;border-radius:10px;margin:10px 0;text-align:center';
-        msg.textContent='⚠️ Student Role: Aap sirf apni profile dekh sakte ho - Dusre students ke call details hidden hai';
-        searchBox.parentElement.after(msg);
-      }
+    } else {
+      document.body.classList.remove('student-mode');
     }
-  }
-  setInterval(blockForStudent, 1000);
+  }, 500);
 })();
 </script>
-  </body>
+   </body>
 </html>
