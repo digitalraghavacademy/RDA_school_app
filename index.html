@@ -2787,5 +2787,25 @@ Write neat and clean answers.`,sections:[{id:b("sec"),title:"Section A — Objec
 </script>
   <script>(function(){function m(a){var h=a.getAttribute("href");if(!h)return;try{var u=new URL(h,document.baseURI);if(((u.protocol==="http:"||u.protocol==="https:")&&u.host!==location.host)||u.protocol==="mailto:"||u.protocol==="tel:"||u.protocol==="sms:"){a.target="_blank";a.rel="noopener noreferrer";}}catch(e){}}function s(){document.querySelectorAll("a[href]").forEach(m);}if(document.readyState!=="loading"){s();}else{document.addEventListener("DOMContentLoaded",s);}document.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(a){m(a);}},true);})();</script>
   <script type="application/json" data-clippy-inline-media-manifest="1">{"version":1,"slots":[]}</script>
+  <script>
+// 2 Patches Only - Ask Moveable + Student Block - Pattern Same
+// Patch 1 - Ask Draggable
+(function(){
+  var askBtn = Array.from(document.querySelectorAll('button')).find(function(b){return b.textContent.includes('ASK RDA')||b.textContent.includes('Ask RDA')});
+  if(askBtn){
+    var box = askBtn.parentElement;
+    box.id='ask-rda-drag';
+    box.style.position='fixed';box.style.right='20px';box.style.bottom='80px';box.style.zIndex='9999';box.style.cursor='move';box.style.touchAction='none';
+    askBtn.innerHTML='✨ Ask RDA ↕️ Drag';
+    var d=false,sx,sy,ox,oy;
+    box.addEventListener('mousedown',function(e){d=true;sx=e.clientX;sy=e.clientY;ox=box.offsetLeft;oy=box.offsetTop;e.preventDefault()});
+    window.addEventListener('mousemove',function(e){if(!d)return;box.style.left=(ox+e.clientX-sx)+'px';box.style.top=(oy+e.clientY-sy)+'px';box.style.right='auto';box.style.bottom='auto'});
+    window.addEventListener('mouseup',function(){d=false});
+    box.addEventListener('touchstart',function(e){d=true;sx=e.touches[0].clientX;sy=e.touches[0].clientY;ox=box.offsetLeft;oy=box.offsetTop},{passive:false});
+    window.addEventListener('touchmove',function(e){if(!d)return;box.style.left=(ox+e.touches[0].clientX-sx)+'px';box.style.top=(oy+e.touches[0].clientY-sy)+'px';e.preventDefault()},{passive:false});
+    window.addEventListener('touchend',function(){d=false});
+  }
+})();
+  </script>
 </body>
 </html>
