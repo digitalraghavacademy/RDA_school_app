@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>School Login</title>
+<style>
+body{font-family:sans-serif;background:#0b1530;color:#eee;margin:0;padding:14px}
+.card{background:#152248;border-radius:12px;padding:16px;margin:0 auto 12px;max-width:520px}
+input{width:100%;padding:10px;margin:4px 0 12px;border-radius:8px;border:1px solid #334;background:#0e1834;color:#fff;box-sizing:border-box;font-size:16px}
+label{font-size:13px;color:#9fb0d6}
+button{padding:10px 16px;border:0;border-radius:8px;background:#e8c66a;color:#0b1530;font-weight:700;cursor:pointer}
+button:disabled{opacity:.6}
+button.ghost{background:transparent;color:#e8c66a;border:1px solid #e8c66a}
+.head{display:flex;align-items:center;gap:12px}
+.logo{width:72px;height:72px;border-radius:50%;object-fit:contain;background:#fff;flex-shrink:0}
+.muted{color:#9fb0d6;font-size:13px;margin-top:2px}
+.msg{padding:10px;border-radius:8px;margin-bottom:12px;font-size:14px}
+.bad{background:#a33}
+.ok{background:#1e7d4f}
+</style>
+</head>
+<body>
+<div id="app">लोड हो रहा है...</div>
+
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getFirestore,doc,getDoc} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const app=initializeApp({
+  apiKey:"AIzaSyDJfsglbqM7AOXzGErvfkGI8Ooj4TFShIU",
+  authDomain:"raghaveacademy.firebaseapp.com",
+  projectId:"raghaveacademy",
+  storageBucket:"raghaveacademy.firebasestorage.app",
+  messagingSenderId:"31663118317",
+  appId:"1:31663118317:web:0cc241617a8df864edb9e4"
+});
+const auth=getAuth(app);
+const db=getFirestore(app);
+
+const $=(id)=>document.getElementById(id);
+const esc=(t)=>String(t==null?"":t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+let current=null;   // {code, data}
+let msg="";
+
+function loginView(){
+  return `<div class="card"><h2>School Login</h2>
+  ${msg?`<div class="msg bad">${esc(msg)}</div>`:""}
+  <label>School code (जैसे RDA002)</label>
+  <input id="code" autocomplete="off" autocapitalize="characters">
+  <label>Password</label>
+  <input id="pw" type="password">
+  <button id="btn">Login</button></div>`;
+}
+
+function schoolView(code,s){
+  const logo=s.logo?`<img class="logo" src="${esc(s.logo)}">`:"";
+  const plan=s.plan==="trial"?"Trial चल रहा है":"Plan: "+esc(s.plan);
+  return `<div class="card head">${logo}
+  <div><h2>${esc(s.name)}</h2>
+  <div class="muted">${esc(s.address)}</div>
+  <div class="muted">Board: ${esc(s.board)} · Session: ${esc(s.session)}</div>
+  <div class="muted">School code: ${esc(code)} · ${plan}</div></div></div>
+  <div class="card"><p class="muted">Login सफल है। अगला चरण: students, staff और marksheet इसी school के अंदर जुड़ेंगे।</p>
+  <button id="out" class="ghost">Logout</button></div>`;
+}
+
+function draw(){
+  $("app").innerHTML = current ? schoolView(current.code,current.data) : loginView();
+  bind();
+}
+
+function bind(){
+  const b=$("btn"); if(b) b.onclick=doLogin;
+  const o=$("out"); if(o) o.onclick=doLogout;
+}
+
+async function doLogin(){
+  const code=$("code").value.trim().toUpperCase();
+  const pw=$("pw").value;
+  if(!/^[A-Z]{2,5}\d{3}$/.test(code)){ msg="School code सही नहीं है (जैसे RDA002)"; return draw(); }
+  if(!pw){ msg="Password डालें"; return draw(); }
+  $("btn").disabled=true;
+  try{
+    const sch=await getDoc(doc(db,"schools",code));
+    if(!sch.exists()||!sch.data().adminEmail){
+      msg="School code या password गलत है"; return draw();
+    }
+    const cred=await signInWithEmailAndPassword(auth,sch.data().adminEmail,pw);
+    const u=await getDoc(doc(db,"users",cred.user.uid));
+    const saved=u.exists()?String(u.data().school||""):"(record नहीं मिला)";
+    if(!u.exists()||saved.trim()!==code){
+      await signOut(auth);
+      msg="इस school code के लिए आपका login नहीं है। users में school: ["+saved+"], आपने डाला: ["+code+"]";
+      return draw();
+    }
+    current={code,data:sch.data()};
+    msg=""; draw();
+  }catch(e){
+    const wrong=["auth/invalid-credential","auth/wrong-password","auth/user-not-found","auth/invalid-login-credentials"];
+    msg=wrong.includes(e.code)?"School code या password गलत है":"Login नहीं हुआ: "+(e.code||e.message);
+    draw();
+  }
+}
+
+async function doLogout(){
+  await signOut(auth);
+  current=null; msg=""; draw();
+}
+
+// Page refresh par login bana rahe
+onAuthStateChanged(auth, async (user)=>{
+  if(!user){ current=null; draw(); return; }
+  try{
+    const u=await getDoc(doc(db,"users",user.uid));
+    if(!u.exists()){ await signOut(auth); current=null; draw(); return; }
+    const code=u.data().school;
+    const sch=await getDoc(doc(db,"schools",code));
+    if(sch.exists()){ current={code,data:sch.data()}; }
+  }catch(e){
+    msg="Data लोड नहीं हुआ: "+(e.code||e.message);
+  }
+  draw();
+});
+</script>
+</body>
+</html>
