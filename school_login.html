@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>School Login</title>
+<style>
+body{font-family:sans-serif;background:#0b1530;color:#eee;margin:0;padding:14px}
+.card{background:#152248;border-radius:12px;padding:16px;margin:0 auto 12px;max-width:620px}
+input,select{width:100%;padding:10px;margin:4px 0 12px;border-radius:8px;border:1px solid #334;background:#0e1834;color:#fff;box-sizing:border-box;font-size:16px}
+label{font-size:13px;color:#9fb0d6}
+button{padding:10px 16px;border:0;border-radius:8px;background:#e8c66a;color:#0b1530;font-weight:700;cursor:pointer;margin:4px 6px 4px 0}
+button:disabled{opacity:.6}
+button.ghost{background:transparent;color:#e8c66a;border:1px solid #e8c66a}
+.head{display:flex;align-items:center;gap:12px}
+.logo{width:72px;height:72px;border-radius:50%;object-fit:contain;background:#fff;flex-shrink:0}
+.muted{color:#9fb0d6;font-size:13px;margin-top:2px}
+.msg{padding:10px;border-radius:8px;margin-bottom:12px;font-size:14px}
+.bad{background:#a33}.ok{background:#1e7d4f}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{border-bottom:1px solid #223;padding:8px 4px;text-align:left}
+</style>
+</head>
+<body>
+<div id="app">लोड हो रहा है...</div>
+
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getFirestore,doc,getDoc,setDoc,getDocs,collection,deleteDoc} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const app=initializeApp({
+  apiKey:"AIzaSyDJfsglbqM7AOXzGErvfkGI8Ooj4TFShIU",
+  authDomain:"raghaveacademy.firebaseapp.com",
+  projectId:"raghaveacademy",
+  storageBucket:"raghaveacademy.firebasestorage.app",
+  messagingSenderId:"31663118317",
+  appId:"1:31663118317:web:0cc241617a8df864edb9e4"
+});
+const auth=getAuth(app);
+const db=getFirestore(app);
+
+const CLASSES=["UKG","LKG","HKG","1","2","3","4","5","6","7","8","9","10","11","12"];
+const BOARDS=["RBSE","CBSE"];
+const ROLL_PREFIX="RDA";
+
+const $=(id)=>document.getElementById(id);
+const esc=(t)=>String(t==null?"":t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+let current=null;   // {code,data}
+let students=[];    // school ke students
+let counters={};    // {"RBSE|1":109}
+let page="students";
+let msg="";
+let saving=false;
+
+function loginView(){
+  return `<div class="card"><h2>School Login</h2>
+  <div class="muted" style="margin-bottom:10px">Site: ${esc(location.hostname)} · Version 4</div>
+  ${msg?`<div class="msg bad">${esc(msg)}</div>`:""}
+  <label>School code (जैसे RDA002)</label>
+  <input id="code" autocomplete="off" autocapitalize="characters">
+  <label>Password</label>
+  <input id="pw" type="password">
+  <button id="btn">Login</button></div>`;
+}
+
+function topView(){
+  const s=current.data;
+  const logo=s.logo?`<img class="logo" src="${esc(s.logo)}">`:"";
+  return `<div class="card head">${logo}
+  <div><h2>${esc(s.name)}</h2>
+  <div class="muted">${esc(s.address)}</div>
+  <div class="muted">Board: ${esc(s.board)} · Session: ${esc(s.session)} · Code: ${esc(current.code)}</div></div></div>
+  <div class="card">
+  <button id="tS" class="${page==="students"?"":"ghost"}">Students (${students.length})</button>
+  <button id="tA" class="${page==="add"?"":"ghost"}">+ नया Student</button>
+  <button id="out" class="ghost">Logout</button></div>`;
+}
+
+function studentsView(){
+  if(!students.length) return `<div class="card"><p class="muted">अभी कोई student नहीं है। "नया Student" से जोड़ें।</p></div>`;
+  const rows=students.map(x=>`<tr>
+    <td>${esc(x.rollNo)}</td><td>${esc(x.name)}</td><td>${esc(x.className)}</td>
+    <td>${esc(x.board)}</td><td>${esc(x.mobile)}</td>
+    <td><button class="ghost" data-del="${esc(x.id)}">Delete</button></td></tr>`).join("");
+  return `<div class="card"><table><tr><th>Roll</th><th>नाम</th><th>Class</th><th>Board</th><th>Mobile</th><th></th></tr>${rows}</table></div>`;
+}
+
+function suggestRoll(board,cls){
+  const key=board+"|"+cls;
+  const nums=students.filter(x=>x.board===board&&x.className===cls)
+    .map(x=>parseInt(String(x.rollNo).replace(/\D/g,""),10)).filter(n=>!isNaN(n));
+  const base=Math.max(0,(counters[key]||0),...nums);
+  return ROLL_PREFIX+(base?base+1:101);
+}
+
+function addView(){
+  const b=BOARDS[0], c=CLASSES[0];
+  return `<div class="card"><h2>नया Student</h2>
+  <label>पूरा नाम *</label><input id="s_name">
+  <label>पिता का नाम</label><input id="s_father">
+  <label>Mobile (10 अंक) *</label><input id="s_mobile" inputmode="numeric" maxlength="10">
+  <label>Board *</label>
+  <select id="s_board">${BOARDS.map(x=>`<option>${x}</option>`).join("")}</select>
+  <label>Class *</label>
+  <select id="s_class">${CLASSES.map(x=>`<option>${x}</option>`).join("")}</select>
+  <label>Roll Number * (अपने-आप सुझाया जाएगा)</label>
+  <input id="s_roll" value="${esc(suggestRoll(b,c))}">
+  <label>Aadhaar (12 अंक, save सिर्फ़ आखिरी 4 अंक होंगे) *</label>
+  <input id="s_aadhar" inputmode="numeric" maxlength="12">
+  <label>जन्म तारीख</label><input id="s_dob" type="date">
+  <label>पता</label><input id="s_address">
+  <button id="save">Save Student</button>
+  <button id="cancel" class="ghost">Cancel</button></div>`;
+}
+
+function draw(){
+  if(!current){ $("app").innerHTML=loginView(); bindLogin(); return; }
+  let h=topView();
+  if(msg) h=`<div class="msg ok">${esc(msg)}</div>`+h;
+  if(page==="add") h+=addView(); else h+=studentsView();
+  $("app").innerHTML=h;
+  bindMain();
+  if(page==="add"){ updateRollOnChange(); }
+  msg="";
+}
+
+function bindLogin(){ const b=$("btn"); if(b) b.onclick=doLogin; }
+
+function bindMain(){
+  $("out").onclick=doLogout;
+  $("tS").onclick=()=>{page="students";draw()};
+  $("tA").onclick=()=>{page="add";draw()};
+  document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>doDelete(b.getAttribute("data-del")));
+  if(page==="add"){
+    $("save").onclick=doSave;
+    $("cancel").onclick=()=>{page="students";msg="";draw()};
+  }
+}
+
+function updateRollOnChange(){
+  const refresh=()=>{ $("s_roll").value=suggestRoll($("s_board").value,$("s_class").value); };
+  $("s_board").onchange=refresh;
+  $("s_class").onchange=refresh;
+}
+
+async function loadSchoolData(code){
+  const snap=await getDocs(collection(db,"schools",code,"students"));
+  students=[];
+  snap.forEach((d)=>students.push({id:d.id,...d.data()}));
+  students.sort((a,b)=>(a.className+"").localeCompare(b.className+"")||(a.rollNo+"").localeCompare(b.rollNo+""));
+  const c=await getDoc(doc(db,"schools",code,"meta","rolls"));
+  counters=c.exists()?c.data():{};
+}
+
+async function doLogin(){
+  const code=$("code").value.trim().toUpperCase();
+  const pw=$("pw").value;
+  if(!/^[A-Z]{2,5}\d{3}$/.test(code)){ msg="School code सही नहीं है (जैसे RDA002)"; return draw(); }
+  if(!pw){ msg="Password डालें"; return draw(); }
+  $("btn").disabled=true;
+  try{
+    const sch=await getDoc(doc(db,"schools",code));
+    if(!sch.exists()||!sch.data().adminEmail){
+      msg="School code नहीं मिला या adminEmail नहीं है (schools → "+code+")"; return draw();
+    }
+    const cred=await signInWithEmailAndPassword(auth,sch.data().adminEmail,pw);
+    let u=await getDoc(doc(db,"users",cred.user.uid));
+    if(!u.exists() && String(sch.data().adminEmail).trim().toLowerCase()===String(cred.user.email).trim().toLowerCase()){
+      await setDoc(doc(db,"users",cred.user.uid),{school:code,role:"Admin"});
+      u=await getDoc(doc(db,"users",cred.user.uid));
+    }
+    const saved=u.exists()?String(u.data().school||""):"(record नहीं मिला)";
+    if(!u.exists()||saved.trim()!==code){
+      await signOut(auth);
+      msg="इस school code के लिए आपका login नहीं है। users में school: ["+saved+"], आपने डाला: ["+code+"], login UID: ["+cred.user.uid+"]";
+      return draw();
+    }
+    current={code,data:sch.data()};
+    await loadSchoolData(code);
+    page="students"; msg="";
+    draw();
+  }catch(e){
+    const wrong=["auth/invalid-credential","auth/wrong-password","auth/user-not-found","auth/invalid-login-credentials"];
+    msg=wrong.includes(e.code)?"Email या password गलत है (code: "+e.code+")":"Login नहीं हुआ: "+(e.code||e.message);
+    draw();
+  }
+}
+
+async function doLogout(){
+  await signOut(auth);
+  current=null; students=[]; counters={}; page="students"; msg="";
+  draw();
+}
+
+async function doSave(){
+  if(saving) return;
+  const v=(id)=>$(id).value.trim();
+  const name=v("s_name"), mobile=v("s_mobile"), board=v("s_board"), cls=v("s_class");
+  const roll=v("s_roll").toUpperCase(), aadhar=v("s_aadhar");
+  if(!name){ msg=""; return alertMsg("नाम भरना ज़रूरी है"); }
+  if(!/^\d{10}$/.test(mobile)){ return alertMsg("Mobile 10 अंक का होना चाहिए"); }
+  if(!roll){ return alertMsg("Roll number भरें"); }
+  if(!/^\d{12}$/.test(aadhar)){ return alertMsg("Aadhaar ठीक 12 अंक का होना चाहिए"); }
+  if(students.some(x=>x.board===board&&x.className===cls&&String(x.rollNo).toUpperCase()===roll)){
+    return alertMsg("इस board और class में यह roll number पहले से है");
+  }
+  const rec={name,father:v("s_father"),mobile,board,className:cls,rollNo:roll,
+    dob:v("s_dob"),address:v("s_address"),aadhar:"XXXX-XXXX-"+aadhar.slice(-4)};
+  saving=true;
+  const btn=$("save"); if(btn){ btn.disabled=true; btn.textContent="Save हो रहा है..."; }
+  try{
+    const id="stu_"+Date.now()+"_"+Math.random().toString(36).slice(2,7);
+    await setDoc(doc(db,"schools",current.code,"students",id),rec);
+    const key=board+"|"+cls;
+    const num=parseInt(roll.replace(/\D/g,""),10);
+    if(!isNaN(num)&&num>(counters[key]||0)) counters[key]=num;
+    await setDoc(doc(db,"schools",current.code,"meta","rolls"),counters);
+    await loadSchoolData(current.code);
+    page="students"; msg="Student जोड़ दिया: "+name;
+    saving=false;
+    draw();
+  }catch(e){
+    saving=false;
+    alertMsg("Save नहीं हुआ: "+(e.code||e.message));
+  }
+}
+
+function alertMsg(t){ msg=t; draw(); }
+
+async function doDelete(id){
+  const s=students.find(x=>x.id===id);
+  if(!s) return;
+  if(!confirm("यह student हटाना है? "+s.name+" ("+s.rollNo+")")) return;
+  try{
+    await deleteDoc(doc(db,"schools",current.code,"students",id));
+    students=students.filter(x=>x.id!==id);
+    msg="Student हटा दिया: "+s.name;
+    draw();
+  }catch(e){ alertMsg("Delete नहीं हुआ: "+(e.code||e.message)); }
+}
+
+onAuthStateChanged(auth, async (user)=>{
+  if(!user){ current=null; draw(); return; }
+  try{
+    const u=await getDoc(doc(db,"users",user.uid));
+    if(!u.exists()){ await signOut(auth); current=null; draw(); return; }
+    const code=u.data().school;
+    const sch=await getDoc(doc(db,"schools",code));
+    if(sch.exists()){ current={code,data:sch.data()}; await loadSchoolData(code); }
+  }catch(e){
+    msg="Data लोड नहीं हुआ: "+(e.code||e.message);
+  }
+  draw();
+});
+</script>
+</body>
+</html>
