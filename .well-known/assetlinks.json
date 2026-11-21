@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.digitalraghavacademy.rdaschool",
+        "sha256_cert_fingerprints": ["53:5E:87:7D:1D:9B:18:6E:6D:5D:1D:20:26:21:7A:E4:5C:BD:2E:0E:F2:E9:F1:32:D4:7B:71:B4:BE:9A:53:AC"]
+      }
+    }]
